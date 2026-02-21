@@ -3,608 +3,562 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GFB_Tito Radio — Live Stream</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400&display=swap" rel="stylesheet" />
-
+  <title>Studio2Radio</title>
   <style>
-    /* ── Reset & Base ─────────────────────────────────────────── */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --black:   #050504;
-      --dark:    #0d0d0b;
-      --red:     #cc2200;
-      --orange:  #e05500;
-      --amber:   #d98000;
-      --yellow:  #c8b400;
-      --green:   #2a7a00;
-      --lime:    #4db300;
-      --steel:   #7a8a8a;
-      --text:    #e8e0d0;
-      --muted:   #6a6458;
+      --bg:       #0B0B0D;
+      --surface:  #141416;
+      --border:   rgba(255,255,255,0.08);
+      --accent:   #C9FF3B;
+      --text:     #F2F2F2;
+      --muted:    #666;
+      --sub:      #B8B8B8;
     }
 
-    html { scroll-behavior: smooth; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      overflow: hidden;
+    }
 
     body {
-      background: var(--black);
+      font-family: 'DM Sans', sans-serif;
       color: var(--text);
-      font-family: 'Barlow', sans-serif;
-      font-weight: 300;
-      overflow-x: hidden;
-      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
 
-    /* ── Grain overlay ────────────────────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed;
+    /* ── Loading / Error states ── */
+    #state-screen {
+      position: absolute;
       inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 1000;
-      opacity: 0.6;
-    }
-
-    /* ── EQ Bar background decoration ────────────────────────── */
-    .eq-bars {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 180px;
       display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      padding: 0 2vw;
-      pointer-events: none;
-      z-index: 0;
-      opacity: 0.12;
-    }
-    .eq-bar {
-      flex: 1;
-      border-radius: 2px 2px 0 0;
-      animation: eqBounce var(--dur, 1.2s) ease-in-out infinite alternate;
-      transform-origin: bottom;
-    }
-    @keyframes eqBounce {
-      from { transform: scaleY(var(--from, 0.3)); }
-      to   { transform: scaleY(var(--to,   1.0)); }
-    }
-
-    /* ── Top nav bar ──────────────────────────────────────────── */
-    .topbar {
-      position: relative;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--bg);
       z-index: 10;
+      transition: opacity 0.4s;
+    }
+    #state-screen.hidden { opacity: 0; pointer-events: none; }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.2; transform: scale(0.8); }
+      50%       { opacity: 1;   transform: scale(1.2); }
+    }
+    #state-msg { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+    /* ── Main player ── */
+    #player {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    #player.visible { opacity: 1; }
+
+    /* ── Header ── */
+    #header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 5vw;
-      border-bottom: 2px solid rgba(204,34,0,0.3);
-      background: linear-gradient(180deg, rgba(5,5,4,0.98) 0%, rgba(5,5,4,0.85) 100%);
-      backdrop-filter: blur(8px);
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
     }
-    .topbar-left {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(13px, 1.5vw, 16px);
-      letter-spacing: 0.18em;
-      color: var(--muted);
-    }
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      color: var(--red);
-      text-transform: uppercase;
-    }
-    .live-indicator {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--red);
-      animation: livePulse 1.5s ease-in-out infinite;
-    }
-    @keyframes livePulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.3; transform: scale(0.7); }
-    }
-
-    /* ── Hero section ─────────────────────────────────────────── */
-    .hero {
-      position: relative;
-      z-index: 2;
-      padding: clamp(40px, 8vh, 80px) 5vw clamp(30px, 5vh, 60px);
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 40px;
-    }
-
-    @media (max-width: 768px) {
-      .hero { grid-template-columns: 1fr; }
-      .hero-widget { margin: 0 auto; }
-    }
-
-    .hero-left { max-width: 600px; }
-
-    /* Logo image */
-    .logo-wrap {
-      margin-bottom: 28px;
-      animation: fadeUp 0.8s ease both;
-    }
-    .logo-wrap img {
-      width: clamp(260px, 45vw, 560px);
-      height: auto;
-      display: block;
-      filter: drop-shadow(0 4px 32px rgba(204,34,0,0.35)) drop-shadow(0 0 80px rgba(200,180,0,0.1));
-    }
-
-    /* EQ stripe accent under logo */
-    .eq-stripe {
-      display: flex;
-      gap: 3px;
-      margin-bottom: 32px;
-      animation: fadeUp 0.8s 0.15s ease both;
-    }
-    .eq-stripe span {
-      height: 4px;
-      border-radius: 2px;
-      flex: 1;
-    }
-
-    .hero-tagline {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: clamp(13px, 1.8vw, 17px);
-      font-weight: 600;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 12px;
-      animation: fadeUp 0.8s 0.2s ease both;
-    }
-
-    .hero-headline {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(42px, 7vw, 96px);
-      line-height: 0.92;
-      letter-spacing: 0.02em;
-      margin-bottom: 20px;
-      animation: fadeUp 0.8s 0.3s ease both;
-    }
-    .hero-headline .line-red    { color: var(--red); }
-    .hero-headline .line-orange { color: var(--orange); }
-    .hero-headline .line-light  { color: var(--text); }
-
-    .hero-desc {
-      font-size: clamp(14px, 1.5vw, 16px);
-      line-height: 1.7;
-      color: #9a9080;
-      max-width: 420px;
-      margin-bottom: 32px;
-      animation: fadeUp 0.8s 0.4s ease both;
-    }
-
-    .hero-stats {
-      display: flex;
-      gap: 32px;
-      animation: fadeUp 0.8s 0.5s ease both;
-    }
-    .stat-item { }
-    .stat-num {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 36px;
-      line-height: 1;
-      color: var(--amber);
-    }
-    .stat-label {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    /* ── Widget container ─────────────────────────────────────── */
-    .hero-widget {
-      animation: fadeUp 0.8s 0.2s ease both;
-      position: relative;
-    }
-
-    .widget-frame {
-      position: relative;
-      width: 320px;
-    }
-
-    /* Steel plate border effect */
-    .widget-frame::before {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 6px;
-      background: linear-gradient(135deg,
-        var(--red) 0%,
-        var(--orange) 20%,
-        var(--amber) 40%,
-        var(--yellow) 55%,
-        var(--green) 75%,
-        var(--lime) 100%
-      );
-      z-index: 0;
-      opacity: 0.8;
-    }
-    .widget-frame::after {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: 5px;
-      background: #111;
-      z-index: 1;
-    }
-
-    .widget-frame iframe {
-      position: relative;
-      z-index: 2;
-      display: block;
-      width: 320px;
-      height: 480px;
-      border: none;
-      border-radius: 4px;
-    }
-
-    /* Corner bolts */
-    .bolt {
-      position: absolute;
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #aaa, #444);
-      z-index: 3;
-      box-shadow: inset 0 1px 2px rgba(255,255,255,0.2), 0 1px 3px rgba(0,0,0,0.8);
-    }
-    .bolt-tl { top: 6px; left: 6px; }
-    .bolt-tr { top: 6px; right: 6px; }
-    .bolt-bl { bottom: 6px; left: 6px; }
-    .bolt-br { bottom: 6px; right: 6px; }
-
-    /* Embed code box */
-    .embed-box {
-      margin-top: 16px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 4px;
-      padding: 10px 12px;
-      position: relative;
-      z-index: 2;
-    }
-    .embed-label {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .embed-code {
-      font-family: 'Courier New', monospace;
-      font-size: 10px;
-      color: var(--lime);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      cursor: pointer;
-    }
-    .copy-btn {
-      margin-top: 8px;
-      width: 100%;
-      background: rgba(204,34,0,0.15);
-      border: 1px solid rgba(204,34,0,0.3);
-      color: var(--red);
-      font-family: 'Barlow Condensed', sans-serif;
+    #station-name {
+      font-family: 'Space Mono', monospace;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      padding: 7px;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-    }
-    .copy-btn:hover { background: rgba(204,34,0,0.3); color: #ff6644; }
-    .copy-btn.copied { background: rgba(42,122,0,0.2); border-color: rgba(42,122,0,0.4); color: var(--lime); }
-
-    /* ── Divider ──────────────────────────────────────────────── */
-    .section-divider {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 0 5vw;
-      margin: 20px 0;
-    }
-    .divider-line {
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(204,34,0,0.4), transparent);
-    }
-    .divider-label {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 13px;
-      letter-spacing: 0.3em;
-      color: var(--muted);
-    }
-
-    /* ── About section ────────────────────────────────────────── */
-    .about-section {
-      position: relative;
-      z-index: 2;
-      padding: clamp(30px, 5vh, 60px) 5vw;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 2px;
-    }
-    @media (max-width: 768px) {
-      .about-section { grid-template-columns: 1fr; }
-    }
-
-    .about-card {
-      background: rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.05);
-      padding: 28px 24px;
-      position: relative;
-      overflow: hidden;
-      transition: background 0.3s;
-    }
-    .about-card:hover { background: rgba(255,255,255,0.04); }
-    .about-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-    }
-    .card-red::before    { background: var(--red); }
-    .card-amber::before  { background: var(--amber); }
-    .card-green::before  { background: var(--green); }
-
-    .card-icon {
-      font-size: 28px;
-      margin-bottom: 14px;
-      display: block;
-    }
-    .card-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 22px;
-      letter-spacing: 0.06em;
-      color: var(--text);
-      margin-bottom: 10px;
-    }
-    .card-body {
-      font-size: 13px;
-      line-height: 1.7;
-      color: #7a7060;
-    }
-
-    /* ── Footer ───────────────────────────────────────────────── */
-    .footer {
-      position: relative;
-      z-index: 2;
-      padding: 30px 5vw;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .footer-brand {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 18px;
+      color: var(--accent);
       letter-spacing: 0.12em;
-      color: var(--muted);
+      text-transform: uppercase;
     }
-    .footer-copy {
-      font-size: 11px;
+    #live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
       color: var(--muted);
       letter-spacing: 0.08em;
     }
-    .footer-eq {
-      display: flex;
-      align-items: flex-end;
-      gap: 2px;
-      height: 18px;
+    .live-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
     }
-    .footer-eq span {
-      width: 3px;
-      border-radius: 1px;
-      animation: eqBounce var(--dur, 1s) ease-in-out infinite alternate;
+    .live-dot.playing { background: var(--accent); animation: pulse 1.4s infinite; }
+
+    /* ── Now playing ── */
+    #now-playing {
+      padding: 14px 16px 10px;
+      flex-shrink: 0;
+    }
+    #track-label {
+      font-size: 9px;
+      font-family: 'Space Mono', monospace;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    #track-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    #track-composer {
+      font-size: 11px;
+      color: var(--sub);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* ── Animations ───────────────────────────────────────────── */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(24px); }
-      to   { opacity: 1; transform: translateY(0); }
+    /* ── Progress bar ── */
+    #progress-wrap {
+      padding: 8px 16px;
+      flex-shrink: 0;
+    }
+    #progress-bar {
+      width: 100%;
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.5s linear;
+    }
+    #time-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+    }
+    .time-label {
+      font-size: 9px;
+      font-family: 'Space Mono', monospace;
+      color: var(--muted);
+    }
+
+    /* ── Controls ── */
+    #controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 16px 10px;
+      flex-shrink: 0;
+    }
+
+    .ctrl-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--sub);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: color 0.2s, background 0.2s;
+      padding: 6px;
+    }
+    .ctrl-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .ctrl-btn svg { display: block; }
+
+    #play-btn {
+      width: 40px; height: 40px;
+      background: var(--accent);
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0B0B0D;
+      transition: transform 0.15s, background 0.2s;
+      flex-shrink: 0;
+    }
+    #play-btn:hover { transform: scale(1.06); }
+    #play-btn:active { transform: scale(0.96); }
+
+    /* ── Volume ── */
+    #vol-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px 10px;
+      flex-shrink: 0;
+    }
+    .vol-icon { color: var(--muted); flex-shrink: 0; }
+    #vol-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    #vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    #vol-slider::-moz-range-thumb {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+    }
+
+    /* ── Track list ── */
+    #track-list {
+      flex: 1;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+    #track-list::-webkit-scrollbar { width: 3px; }
+    #track-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    .track-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 0.15s;
+    }
+    .track-row:hover { background: rgba(255,255,255,0.04); }
+    .track-row.active { background: rgba(201,255,59,0.06); }
+
+    .track-num {
+      font-size: 9px;
+      font-family: 'Space Mono', monospace;
+      color: var(--muted);
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .track-row.active .track-num { color: var(--accent); }
+
+    .track-info { flex: 1; min-width: 0; }
+    .track-row-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-row.active .track-row-title { color: var(--accent); }
+    .track-row-composer {
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .track-dur {
+      font-size: 9px;
+      font-family: 'Space Mono', monospace;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* ── Footer branding ── */
+    #widget-footer {
+      padding: 7px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    #branding {
+      font-family: 'Space Mono', monospace;
+      font-size: 8px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    #track-count {
+      font-family: 'Space Mono', monospace;
+      font-size: 8px;
+      color: var(--muted);
     }
   </style>
 </head>
 <body>
 
-  <!-- Animated EQ bars background -->
-  <div class="eq-bars" id="eqBars"></div>
-
-  <!-- Top bar -->
-  <div class="topbar">
-    <span class="topbar-left">GFB_Tito · Writer · Producer</span>
-    <div class="topbar-right">
-      <div class="live-indicator"></div>
-      <span>Now Streaming</span>
-    </div>
+  <!-- Loading / error state -->
+  <div id="state-screen">
+    <div class="pulse-dot"></div>
+    <span id="state-msg">LOADING</span>
   </div>
 
-  <!-- Hero -->
-  <section class="hero">
-    <div class="hero-left">
+  <!-- Player -->
+  <div id="player">
 
-      <!-- Logo -->
-      <div class="logo-wrap">
-        <img src="GFB_Tito.png" alt="GFB_Tito — Produced By" />
-      </div>
-
-      <!-- EQ stripe -->
-      <div class="eq-stripe">
-        <span style="background:var(--red);"></span>
-        <span style="background:var(--red);"></span>
-        <span style="background:var(--orange);"></span>
-        <span style="background:var(--orange);"></span>
-        <span style="background:var(--amber);"></span>
-        <span style="background:var(--amber);"></span>
-        <span style="background:var(--yellow);"></span>
-        <span style="background:var(--yellow);"></span>
-        <span style="background:var(--green);"></span>
-        <span style="background:var(--green);"></span>
-        <span style="background:var(--lime);"></span>
-        <span style="background:var(--lime);"></span>
-      </div>
-
-      <div class="hero-tagline">Original Music · Live Radio</div>
-
-      <h1 class="hero-headline">
-        <span class="line-red">THE</span><br />
-        <span class="line-orange">STATION</span><br />
-        <span class="line-light">IS LIVE</span>
-      </h1>
-
-      <p class="hero-desc">
-        Original compositions, production cuts, and works in progress — 
-        streaming direct from the studio. All tracks written and produced by GFB_Tito.
-      </p>
-
-      <div class="hero-stats">
-        <div class="stat-item">
-          <div class="stat-num" id="stat-tracks">—</div>
-          <div class="stat-label">Tracks</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num">LIVE</div>
-          <div class="stat-label">Stream</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num">100%</div>
-          <div class="stat-label">Original</div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Widget -->
-    <div class="hero-widget">
-      <div class="widget-frame">
-        <div class="bolt bolt-tl"></div>
-        <div class="bolt bolt-tr"></div>
-        <div class="bolt bolt-bl"></div>
-        <div class="bolt bolt-br"></div>
-        <iframe
-          id="radio-widget"
-          src="https://radio-station-widget.pages.dev/"
-          allow="autoplay"
-          title="GFB_Tito Radio Player"
-        ></iframe>
-      </div>
-
-      <!-- Embed code -->
-      <div class="embed-box">
-        <div class="embed-label">Embed this player</div>
-        <div class="embed-code" id="embed-snippet">&lt;iframe src="https://radio-station-widget.pages.dev/" width="320" height="480"&gt;&lt;/iframe&gt;</div>
-        <button class="copy-btn" id="copy-btn" onclick="copyEmbed()">Copy Embed Code</button>
+    <!-- Header -->
+    <div id="header">
+      <span id="station-name">Radio</span>
+      <div id="live-badge">
+        <div class="live-dot" id="live-dot"></div>
+        <span id="live-text">READY</span>
       </div>
     </div>
-  </section>
 
-  <!-- Divider -->
-  <div class="section-divider">
-    <div class="divider-line"></div>
-    <span class="divider-label">The Work</span>
-    <div class="divider-line"></div>
+    <!-- Now playing -->
+    <div id="now-playing">
+      <div id="track-label">NOW PLAYING</div>
+      <div id="track-title">—</div>
+      <div id="track-composer">Select a track to begin</div>
+    </div>
+
+    <!-- Progress -->
+    <div id="progress-wrap">
+      <div id="progress-bar" onclick="seekTo(event)">
+        <div id="progress-fill"></div>
+      </div>
+      <div id="time-row">
+        <span class="time-label" id="time-current">0:00</span>
+        <span class="time-label" id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <button class="ctrl-btn" onclick="prevTrack()" title="Previous">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+        </svg>
+      </button>
+
+      <button id="play-btn" onclick="togglePlay()" title="Play/Pause">
+        <svg id="play-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <svg id="pause-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+      </button>
+
+      <button class="ctrl-btn" onclick="nextTrack()" title="Next">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 18l8.5-6L6 6v12zm2.5-6 5.5 3.9V8.1L8.5 12zM16 6h2v12h-2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Volume -->
+    <div id="vol-row">
+      <svg class="vol-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+      </svg>
+      <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)" />
+    </div>
+
+    <!-- Track list -->
+    <div id="track-list"></div>
+
+    <!-- Footer -->
+    <div id="widget-footer">
+      <span id="branding">Studio2Radio</span>
+      <span id="track-count">0 tracks</span>
+    </div>
+
   </div>
 
-  <!-- About cards -->
-  <section class="about-section">
-    <div class="about-card card-red">
-      <span class="card-icon">🎛️</span>
-      <div class="card-title">Original Production</div>
-      <p class="card-body">Every track on this station is an original composition — written, arranged, and produced by GFB_Tito. No samples, no loops.</p>
-    </div>
-    <div class="about-card card-amber">
-      <span class="card-icon">📡</span>
-      <div class="card-title">Live Catalog</div>
-      <p class="card-body">The station updates in real time as new tracks are added to the studio. What you hear is what's in the vault right now.</p>
-    </div>
-    <div class="about-card card-green">
-      <span class="card-icon">📋</span>
-      <div class="card-title">PRO Registered</div>
-      <p class="card-body">All compositions are logged and registered with performing rights organizations. Every play counts toward reporting.</p>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <span class="footer-brand">GFB_Tito Radio</span>
-    <span class="footer-copy">© 2026 GFB_Tito · All compositions original · All rights reserved</span>
-    <div class="footer-eq" id="footerEq"></div>
-  </footer>
+  <audio id="audio"></audio>
 
   <script>
-    // ── Generate animated EQ background bars ──────────────────────
-    const colors = ['#cc2200','#cc2200','#e05500','#e05500','#d98000','#d98000','#c8b400','#c8b400','#2a7a00','#2a7a00','#4db300','#4db300'];
-    const eqContainer = document.getElementById('eqBars');
-    for (let i = 0; i < 48; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'eq-bar';
-      const colorIdx = Math.floor((i / 48) * colors.length);
-      const fromH = (0.15 + Math.random() * 0.25).toFixed(2);
-      const toH   = (0.5  + Math.random() * 0.5).toFixed(2);
-      const dur   = (0.7  + Math.random() * 1.4).toFixed(2);
-      bar.style.cssText = `background:${colors[colorIdx]};--from:${fromH};--to:${toH};--dur:${dur}s;height:${Math.floor(80 + Math.random()*100)}px;animation-delay:${(Math.random()*1.5).toFixed(2)}s`;
-      eqContainer.appendChild(bar);
-    }
+    // ── CONFIG ──────────────────────────────────────────────────────
+    // Replace these two values before deploying:
+    const WORKER_URL = 'YOUR_WORKER_URL_HERE';  // e.g. https://okcomputer-radio-widget.yourname.workers.dev
+    const USER_ID    = 'YOUR_USER_ID_HERE';     // Supabase user UUID
 
-    // ── Footer mini EQ ────────────────────────────────────────────
-    const footerEq = document.getElementById('footerEq');
-    const fColors = ['#cc2200','#e05500','#d98000','#c8b400','#2a7a00','#4db300'];
-    for (let i = 0; i < 12; i++) {
-      const b = document.createElement('span');
-      const h = 4 + Math.floor(Math.random() * 14);
-      b.style.cssText = `background:${fColors[i % fColors.length]};height:${h}px;--from:0.3;--to:1;--dur:${(0.6+Math.random()*0.8).toFixed(2)}s;animation-delay:${(Math.random()*0.8).toFixed(2)}s`;
-      footerEq.appendChild(b);
-    }
+    // ── State ───────────────────────────────────────────────────────
+    let tracks       = [];
+    let currentIndex = -1;
+    let isPlaying    = false;
+    const audio      = document.getElementById('audio');
 
-    // ── Copy embed code ───────────────────────────────────────────
-    function copyEmbed() {
-      const code = `<iframe src="https://radio-station-widget.pages.dev/" width="320" height="480" frameborder="0" allow="autoplay" title="GFB_Tito Radio"></iframe>`;
-      navigator.clipboard.writeText(code).then(() => {
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = '✓ Copied!';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.textContent = 'Copy Embed Code';
-          btn.classList.remove('copied');
-        }, 2500);
-      });
-    }
+    // ── Boot ────────────────────────────────────────────────────────
+    async function init() {
+      try {
+        setState('LOADING');
+        const res  = await fetch(`${WORKER_URL}?userId=${USER_ID}`);
+        if (!res.ok) throw new Error('Worker error ' + res.status);
+        const data = await res.json();
 
-    // ── Pull track count from widget iframe via postMessage ───────
-    // Fallback: just show a dash until we hear from the widget
-    window.addEventListener('message', (e) => {
-      if (e.data && e.data.trackCount !== undefined) {
-        document.getElementById('stat-tracks').textContent = e.data.trackCount;
+        tracks = data.tracks || [];
+        document.getElementById('station-name').textContent = (data.stationName || 'Radio').toUpperCase();
+        document.getElementById('track-count').textContent  = `${tracks.length} track${tracks.length !== 1 ? 's' : ''}`;
+
+        if (tracks.length === 0) { setState('NO TRACKS FOUND'); return; }
+
+        renderTrackList();
+        hideStateScreen();
+
+      } catch (err) {
+        console.error(err);
+        setState('FAILED TO LOAD');
       }
+    }
+
+    // ── Render track list ────────────────────────────────────────────
+    function renderTrackList() {
+      const list = document.getElementById('track-list');
+      list.innerHTML = tracks.map((t, i) => `
+        <div class="track-row ${i === currentIndex ? 'active' : ''}" onclick="playIndex(${i})">
+          <span class="track-num">${i === currentIndex ? '▶' : String(i + 1).padStart(2, '0')}</span>
+          <div class="track-info">
+            <div class="track-row-title">${esc(t.title)}</div>
+            <div class="track-row-composer">${esc(t.composer)}</div>
+          </div>
+          <span class="track-dur">${formatTime(t.duration)}</span>
+        </div>
+      `).join('');
+    }
+
+    // ── Playback ─────────────────────────────────────────────────────
+    function playIndex(i) {
+      if (i < 0 || i >= tracks.length) return;
+      currentIndex = i;
+      const track  = tracks[i];
+
+      audio.src = track.signedUrl;
+      audio.volume = parseFloat(document.getElementById('vol-slider').value);
+      audio.play().then(() => {
+        isPlaying = true;
+        updatePlayState();
+      }).catch(err => console.warn('Playback error:', err));
+
+      document.getElementById('track-title').textContent    = track.title;
+      document.getElementById('track-composer').textContent = track.composer;
+      document.getElementById('time-total').textContent     = formatTime(track.duration);
+      renderTrackList();
+    }
+
+    function togglePlay() {
+      if (currentIndex === -1 && tracks.length > 0) { playIndex(0); return; }
+      if (isPlaying) {
+        audio.pause();
+        isPlaying = false;
+      } else {
+        audio.play();
+        isPlaying = true;
+      }
+      updatePlayState();
+    }
+
+    function nextTrack() {
+      if (tracks.length === 0) return;
+      playIndex((currentIndex + 1) % tracks.length);
+    }
+
+    function prevTrack() {
+      if (tracks.length === 0) return;
+      if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+      playIndex((currentIndex - 1 + tracks.length) % tracks.length);
+    }
+
+    function setVolume(v) {
+      audio.volume = parseFloat(v);
+    }
+
+    function seekTo(e) {
+      if (!audio.duration) return;
+      const bar   = document.getElementById('progress-bar');
+      const rect  = bar.getBoundingClientRect();
+      const ratio = (e.clientX - rect.left) / rect.width;
+      audio.currentTime = ratio * audio.duration;
+    }
+
+    // ── Audio events ─────────────────────────────────────────────────
+    audio.addEventListener('timeupdate', () => {
+      if (!audio.duration) return;
+      const pct = (audio.currentTime / audio.duration) * 100;
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('time-current').textContent  = formatTime(audio.currentTime);
     });
+
+    audio.addEventListener('ended', () => nextTrack());
+
+    audio.addEventListener('play',  () => { isPlaying = true;  updatePlayState(); });
+    audio.addEventListener('pause', () => { isPlaying = false; updatePlayState(); });
+
+    // ── UI helpers ───────────────────────────────────────────────────
+    function updatePlayState() {
+      document.getElementById('play-icon').style.display  = isPlaying ? 'none'  : 'block';
+      document.getElementById('pause-icon').style.display = isPlaying ? 'block' : 'none';
+      const dot  = document.getElementById('live-dot');
+      const text = document.getElementById('live-text');
+      if (isPlaying) {
+        dot.classList.add('playing');
+        text.textContent = 'PLAYING';
+      } else {
+        dot.classList.remove('playing');
+        text.textContent = 'PAUSED';
+      }
+    }
+
+    function setState(msg) {
+      document.getElementById('state-msg').textContent = msg;
+      document.getElementById('state-screen').classList.remove('hidden');
+    }
+
+    function hideStateScreen() {
+      document.getElementById('state-screen').classList.add('hidden');
+      document.getElementById('player').classList.add('visible');
+    }
+
+    function formatTime(s) {
+      if (!s || isNaN(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Start ────────────────────────────────────────────────────────
+    init();
   </script>
 
 </body>
